@@ -11,24 +11,31 @@ final sharedPreferencesProvider = Provider<SharedPreferences>(
 /// The real server needs the secret code; fake mode doesn't.
 final appCodeRequiredProvider = Provider<bool>((ref) => supabaseUrl.isNotEmpty);
 
-/// The secret code, remembered in this browser. null = not entered yet.
+/// Reads the code from my personal link: https://…/job-fit/?k=CODE
+/// Returns null when the link has no code.
+String? codeFromLink(Uri link) {
+  final code = link.queryParameters['k']?.trim();
+  return (code == null || code.isEmpty) ? null : code;
+}
+
+/// The secret code, remembered in this browser. null = not opened with my link yet.
 class AppCodeNotifier extends Notifier<String?> {
-  static const _key = 'app_code';
+  static const key = 'app_code';
 
   SharedPreferences get _prefs => ref.read(sharedPreferencesProvider);
 
   @override
-  String? build() => _prefs.getString(_key);
+  String? build() => _prefs.getString(key);
 
   Future<void> save(String code) async {
     final trimmed = code.trim();
     if (trimmed.isEmpty) return;
-    await _prefs.setString(_key, trimmed);
+    await _prefs.setString(key, trimmed);
     state = trimmed;
   }
 
   Future<void> clear() async {
-    await _prefs.remove(_key);
+    await _prefs.remove(key);
     state = null;
   }
 }

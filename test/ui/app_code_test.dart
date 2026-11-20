@@ -36,31 +36,45 @@ Future<void> _pump(
   );
 }
 
+const _linkHint = 'Open this site with your personal link to use it.';
+
 void main() {
-  testWidgets('no saved code → asks for it; saving remembers it', (
-    tester,
-  ) async {
-    final prefs = await _prefs({});
-    await _pump(tester, prefs);
+  group('codeFromLink', () {
+    test('reads ?k= from the link', () {
+      expect(
+        codeFromLink(Uri.parse('https://x.github.io/job-fit/?k=abc123')),
+        'abc123',
+      );
+    });
 
-    expect(find.byKey(const Key('appCode')), findsOneWidget);
-
-    await tester.enterText(find.byKey(const Key('appCode')), ' my-code ');
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('appCode')), findsNothing);
-    expect(prefs.getString('app_code'), 'my-code');
+    test('no code or empty code → null', () {
+      expect(codeFromLink(Uri.parse('https://x.github.io/job-fit/')), isNull);
+      expect(
+        codeFromLink(Uri.parse('https://x.github.io/job-fit/?k=')),
+        isNull,
+      );
+    });
   });
 
-  testWidgets('saved code → not asked again', (tester) async {
+  testWidgets('no saved code → hint shown, Evaluate disabled', (tester) async {
+    await _pump(tester, await _prefs({}));
+
+    expect(find.text(_linkHint), findsOneWidget);
+    final button = tester.widget<ButtonStyleButton>(
+      find.ancestor(
+        of: find.text('Evaluate'),
+        matching: find.bySubtype<ButtonStyleButton>(),
+      ),
+    );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets('saved code → no hint', (tester) async {
     await _pump(tester, await _prefs({'app_code': 'my-code'}));
-    expect(find.byKey(const Key('appCode')), findsNothing);
+    expect(find.text(_linkHint), findsNothing);
   });
 
-  testWidgets('code refused by server → forgotten and asked again', (
-    tester,
-  ) async {
+  testWidgets('code refused by server → forgotten, hint shown', (tester) async {
     final prefs = await _prefs({'app_code': 'old-code'});
     await _pump(tester, prefs, analyzer: _RefusingAnalyzer());
 
@@ -69,10 +83,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Wrong secret code. Please enter it again.'),
+      find.text(
+        'This link is not valid. Open the site with your personal link.',
+      ),
       findsOneWidget,
     );
-    expect(find.byKey(const Key('appCode')), findsOneWidget);
+    expect(find.text(_linkHint), findsOneWidget);
     expect(prefs.getString('app_code'), isNull);
   });
 }

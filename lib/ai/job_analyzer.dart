@@ -60,7 +60,8 @@ abstract interface class JobAnalyzer {
 /// The server refused the secret app code.
 class WrongAppCodeException implements Exception {
   @override
-  String toString() => 'Wrong secret code. Please enter it again.';
+  String toString() =>
+      'This link is not valid. Open the site with your personal link.';
 }
 
 /// Any other failure, with a message that is safe to show.

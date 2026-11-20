@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../evaluation/app_code.dart';
 import '../evaluation/evaluation_controller.dart';
-import '../scoring/fit_score.dart';
+import 'result_view.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -24,46 +24,74 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final evaluation = ref.watch(evaluationProvider);
-    final needsCode =
+    final needsLink =
         ref.watch(appCodeRequiredProvider) &&
         ref.watch(appCodeProvider) == null;
+    final text = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Job Fit')),
+      backgroundColor: const Color(0xFFF5F7FA),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
+            constraints: const BoxConstraints(maxWidth: 760),
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
               children: [
-                if (needsCode) ...[
-                  const _AppCodeCard(),
-                  const SizedBox(height: 16),
-                ],
+                Text(
+                  'Job Fit',
+                  style: text.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Paste a job. Get a clear answer: apply or not.',
+                  style: text.bodyLarge?.copyWith(color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 20),
+                if (needsLink)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'Open this site with your personal link to use it.',
+                    ),
+                  ),
                 TextField(
                   key: const Key('jobText'),
                   controller: _jobText,
                   minLines: 6,
                   maxLines: 12,
-                  decoration: const InputDecoration(
-                    labelText: 'Paste a job description',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    hintText: 'Paste the job description here…',
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: evaluation.isLoading || needsCode
-                      ? null
-                      : () => ref
-                            .read(evaluationProvider.notifier)
-                            .evaluateJob(_jobText.text),
-                  child: const Text('Evaluate'),
+                SizedBox(
+                  height: 48,
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.auto_awesome),
+                    label: const Text('Evaluate'),
+                    onPressed: evaluation.isLoading || needsLink
+                        ? null
+                        : () => ref
+                              .read(evaluationProvider.notifier)
+                              .evaluateJob(_jobText.text),
+                  ),
                 ),
                 const SizedBox(height: 24),
                 evaluation.when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
+                  loading: () => const _Loading(),
                   error: (e, _) => Text(
                     '$e',
                     style: TextStyle(
@@ -72,7 +100,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                   data: (value) => value == null
                       ? const SizedBox.shrink()
-                      : _ResultCard(value),
+                      : ResultView(value),
                 ),
               ],
             ),
@@ -83,134 +111,17 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 }
 
-/// Asks once for the secret code; it is then remembered in this browser.
-class _AppCodeCard extends ConsumerStatefulWidget {
-  const _AppCodeCard();
-
-  @override
-  ConsumerState<_AppCodeCard> createState() => _AppCodeCardState();
-}
-
-class _AppCodeCardState extends ConsumerState<_AppCodeCard> {
-  final _code = TextEditingController();
-
-  @override
-  void dispose() {
-    _code.dispose();
-    super.dispose();
-  }
-
-  void _save() => ref.read(appCodeProvider.notifier).save(_code.text);
+class _Loading extends StatelessWidget {
+  const _Loading();
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                key: const Key('appCode'),
-                controller: _code,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Secret code'),
-                onSubmitted: (_) => _save(),
-              ),
-            ),
-            const SizedBox(width: 12),
-            FilledButton(onPressed: _save, child: const Text('Save')),
-          ],
-        ),
-      ),
+    return const Column(
+      children: [
+        CircularProgressIndicator(),
+        SizedBox(height: 12),
+        Text('Comparing the job with your profile… (about 15 seconds)'),
+      ],
     );
   }
-}
-
-class _ResultCard extends StatelessWidget {
-  const _ResultCard(this.evaluation);
-
-  final Evaluation evaluation;
-
-  @override
-  Widget build(BuildContext context) {
-    final a = evaluation.analysis;
-    final r = evaluation.result;
-    final text = Theme.of(context).textTheme;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${a.title} — ${a.company}', style: text.titleMedium),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Chip(
-                  label: Text(_verdictLabel(r.verdict)),
-                  backgroundColor: _verdictColor(r.verdict),
-                ),
-                const SizedBox(width: 12),
-                Text('${r.score}/100', style: text.headlineSmall),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(r.calculation, style: text.bodySmall),
-            const SizedBox(height: 8),
-            Text(
-              'Blockers: ${a.blockers.isEmpty ? 'none' : a.blockers.map((b) => b.name).join(', ')}',
-            ),
-            if (a.location.isNotEmpty) Text('Location: ${a.location}'),
-            Text('Can I work there: ${a.eligibility.name}'),
-            if (a.reasons.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              for (final reason in a.reasons) Text('• $reason'),
-            ],
-            const Divider(height: 24),
-            for (final req in a.requirements)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(req.name),
-                          if (req.evidence.isNotEmpty)
-                            Text(req.evidence, style: text.bodySmall),
-                        ],
-                      ),
-                    ),
-                    SizedBox(
-                      width: 56,
-                      child: Text(req.type.name.toUpperCase()),
-                    ),
-                    SizedBox(
-                      width: 72,
-                      child: Text(req.match.name.toUpperCase()),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static String _verdictLabel(Verdict v) => switch (v) {
-    Verdict.apply => 'APPLY',
-    Verdict.applyWithCaution => 'APPLY WITH CAUTION',
-    Verdict.skip => 'SKIP',
-  };
-
-  static Color _verdictColor(Verdict v) => switch (v) {
-    Verdict.apply => Colors.green.shade200,
-    Verdict.applyWithCaution => Colors.orange.shade200,
-    Verdict.skip => Colors.red.shade200,
-  };
 }

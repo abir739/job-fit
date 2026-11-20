@@ -23,7 +23,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // Fake data: must_avg 0.875, nice_avg 0.25 → 80×0.875 + 20×0.25 = 75.
-    expect(find.text('75/100'), findsOneWidget);
+    expect(find.text('75%'), findsOneWidget);
+    // Chips grouped by match: 3 strong, 2 partial, 1 missing in the fake data.
+    expect(find.text('Matched (3)'), findsOneWidget);
+    expect(find.text('Partly (2)'), findsOneWidget);
+    expect(find.text('Missing (1)'), findsOneWidget);
     // Eligibility unknown → caution, even with a good score.
     expect(find.text('APPLY WITH CAUTION'), findsOneWidget);
   });
@@ -32,6 +36,6 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: MainApp()));
     await tester.tap(find.text('Evaluate'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('/100'), findsNothing);
+    expect(find.textContaining('%'), findsNothing);
   });
 }
