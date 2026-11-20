@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../evaluation/app_code.dart';
 import '../evaluation/evaluation_controller.dart';
 import '../scoring/fit_score.dart';
 
@@ -23,6 +24,9 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final evaluation = ref.watch(evaluationProvider);
+    final needsCode =
+        ref.watch(appCodeRequiredProvider) &&
+        ref.watch(appCodeProvider) == null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Job Fit')),
@@ -33,6 +37,10 @@ class _HomePageState extends ConsumerState<HomePage> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                if (needsCode) ...[
+                  const _AppCodeCard(),
+                  const SizedBox(height: 16),
+                ],
                 TextField(
                   key: const Key('jobText'),
                   controller: _jobText,
@@ -45,7 +53,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 const SizedBox(height: 12),
                 FilledButton(
-                  onPressed: evaluation.isLoading
+                  onPressed: evaluation.isLoading || needsCode
                       ? null
                       : () => ref
                             .read(evaluationProvider.notifier)
@@ -56,7 +64,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                 evaluation.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Text('Something went wrong: $e'),
+                  error: (e, _) => Text(
+                    '$e',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                   data: (value) => value == null
                       ? const SizedBox.shrink()
                       : _ResultCard(value),
@@ -64,6 +77,50 @@ class _HomePageState extends ConsumerState<HomePage> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Asks once for the secret code; it is then remembered in this browser.
+class _AppCodeCard extends ConsumerStatefulWidget {
+  const _AppCodeCard();
+
+  @override
+  ConsumerState<_AppCodeCard> createState() => _AppCodeCardState();
+}
+
+class _AppCodeCardState extends ConsumerState<_AppCodeCard> {
+  final _code = TextEditingController();
+
+  @override
+  void dispose() {
+    _code.dispose();
+    super.dispose();
+  }
+
+  void _save() => ref.read(appCodeProvider.notifier).save(_code.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                key: const Key('appCode'),
+                controller: _code,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Secret code'),
+                onSubmitted: (_) => _save(),
+              ),
+            ),
+            const SizedBox(width: 12),
+            FilledButton(onPressed: _save, child: const Text('Save')),
+          ],
         ),
       ),
     );
@@ -105,14 +162,29 @@ class _ResultCard extends StatelessWidget {
             Text(
               'Blockers: ${a.blockers.isEmpty ? 'none' : a.blockers.map((b) => b.name).join(', ')}',
             ),
+            if (a.location.isNotEmpty) Text('Location: ${a.location}'),
             Text('Can I work there: ${a.eligibility.name}'),
+            if (a.reasons.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              for (final reason in a.reasons) Text('• $reason'),
+            ],
             const Divider(height: 24),
             for (final req in a.requirements)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: Text(req.name)),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(req.name),
+                          if (req.evidence.isNotEmpty)
+                            Text(req.evidence, style: text.bodySmall),
+                        ],
+                      ),
+                    ),
                     SizedBox(
                       width: 56,
                       child: Text(req.type.name.toUpperCase()),

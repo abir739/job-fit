@@ -14,11 +14,14 @@ enum Match {
 }
 
 class Requirement {
-  const Requirement(this.name, this.type, this.match);
+  const Requirement(this.name, this.type, this.match, {this.evidence = ''});
 
   final String name;
   final RequirementType type;
   final Match match;
+
+  /// Short proof from my profile (display only, not used for scoring).
+  final String evidence;
 }
 
 /// Any one of these means SKIP, whatever the score.
