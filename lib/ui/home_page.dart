@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../evaluation/evaluation_controller.dart';
+import 'history_list.dart';
 import 'result_view.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -13,6 +14,20 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   final _jobText = TextEditingController();
+  final _resultKey = GlobalKey();
+
+  /// After opening an old job, scroll up so its result is visible.
+  void _scrollToResult() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _resultKey.currentContext;
+      if (ctx != null && ctx.mounted) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 300),
+        );
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -79,18 +94,23 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                evaluation.when(
-                  loading: () => const _Loading(),
-                  error: (e, _) => Text(
-                    '$e',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                KeyedSubtree(
+                  key: _resultKey,
+                  child: evaluation.when(
+                    loading: () => const _Loading(),
+                    error: (e, _) => Text(
+                      '$e',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
+                    data: (value) => value == null
+                        ? const SizedBox.shrink()
+                        : ResultView(value),
                   ),
-                  data: (value) => value == null
-                      ? const SizedBox.shrink()
-                      : ResultView(value),
                 ),
+                const SizedBox(height: 24),
+                HistoryList(onOpen: _scrollToResult),
               ],
             ),
           ),

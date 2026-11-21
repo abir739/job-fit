@@ -13,6 +13,7 @@ Map<String, dynamic> sampleJson() => {
   'blockers': ['tooSenior'],
   'eligibility': 'yes',
   'reasons': ['Good match'],
+  'cvTips': ['Add Riverpod keyword'],
 };
 
 void main() {
@@ -27,6 +28,12 @@ void main() {
     expect(a.blockers, [Blocker.tooSenior]);
     expect(a.eligibility, Eligibility.yes);
     expect(a.reasons, ['Good match']);
+    expect(a.cvTips, ['Add Riverpod keyword']);
+  });
+
+  test('old answers without cvTips still load', () {
+    final json = sampleJson()..remove('cvTips');
+    expect(JobAnalysis.fromJson(json).cvTips, isEmpty);
   });
 
   test('unknown value is rejected, never guessed', () {

@@ -13,3 +13,15 @@ alter table public.private_settings enable row level security;
 -- New Supabase projects don't grant table access automatically:
 -- allow ONLY the server role (used inside the Edge Function) to read it.
 grant select on table public.private_settings to service_role;
+
+-- History of evaluated jobs (written and read only by the Edge Function).
+-- Score and verdict are NOT stored: the app recomputes them from `analysis`
+-- with its fixed rules, so old entries always follow the current rules.
+create table if not exists public.job_history (
+  id         bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  job_text   text not null,
+  analysis   jsonb not null
+);
+alter table public.job_history enable row level security;
+grant select, insert, delete on table public.job_history to service_role;

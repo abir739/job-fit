@@ -21,6 +21,8 @@ class FakeJobAnalyzer implements JobAnalyzer {
         Requirement('CI/CD', RequirementType.nice, Match.partial),
         Requirement('Firebase', RequirementType.nice, Match.missing),
       ],
+      reasons: ['Sample data: no real AI call.'],
+      cvTips: ['Add "Firebase" if you have used it.'],
     );
   }
 }

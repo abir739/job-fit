@@ -6,6 +6,7 @@ import '../scoring/fit_score.dart';
 const _green = Color(0xFF1E8E5A);
 const _amber = Color(0xFFE08A00);
 const _red = Color(0xFFD64545);
+const _blue = Color(0xFF2F6FDB);
 
 Color verdictColor(Verdict v) => switch (v) {
   Verdict.apply => _green,
@@ -116,6 +117,28 @@ class ResultView extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Text(reason),
+                  ),
+              ],
+            ),
+          ),
+
+        // How to adapt my CV for this job
+        if (a.cvTips.isNotEmpty)
+          _Banner(
+            icon: Icons.edit_note,
+            color: _blue,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Improve your CV for this job',
+                  style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                for (final tip in a.cvTips)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text('• $tip'),
                   ),
               ],
             ),

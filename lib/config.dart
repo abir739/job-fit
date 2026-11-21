@@ -7,3 +7,7 @@ const jobFunctionName = String.fromEnvironment(
   'JOB_FUNCTION',
   defaultValue: 'analyze-job',
 );
+
+/// The Edge Function: POST analyzes a job, GET lists the history.
+Uri get jobFunctionUri =>
+    Uri.parse('$supabaseUrl/functions/v1/$jobFunctionName');

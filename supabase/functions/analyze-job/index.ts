@@ -1,9 +1,11 @@
-// Supabase Edge Function: job description in → structured facts out (JSON).
+// Supabase Edge Function.
+//   POST { jobText } → structured facts about the job (JSON), saved to history.
+//   GET              → the 50 most recent history entries.
 // It does NOT compute the score: the app does that with fixed rules.
 // Private data (profile, rules) is read from the `private_settings` table.
 //
 // Secrets (Edge Functions → Secrets): GEMINI_API_KEY,
-// optional GEMINI_MODEL and GEMINI_FALLBACK_MODELS (comma-separated).
+// optional GEMINI_MODEL, GEMINI_FALLBACK_MODELS (comma-separated), GEMINI_THINKING.
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -16,15 +18,17 @@ const MODELS = [
     .map((m) => m.trim())
     .filter(Boolean),
 ];
-const RETRY_STATUSES = [404, 429, 500, 503];
+const RETRY_STATUSES = [400, 404, 429, 500, 503];
 // A busy model can hang: give up on it after this and try the next one.
 const MODEL_TIMEOUT_MS = 35_000;
 const MAX_JOB_CHARS = 20_000;
+// minimal | low | medium | high
+const THINKING_LEVEL = Deno.env.get("GEMINI_THINKING") ?? "low";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 // Same names as the Dart enums in lib/scoring/fit_score.dart.
@@ -68,12 +72,18 @@ const RESPONSE_SCHEMA = {
       type: "string",
       enum: ["yes", "unknown"],
       description:
-        "yes = location compatible or sponsorship offered; otherwise unknown",
+        "Follow the 'location compatible' rule in the instructions exactly; when in doubt: unknown",
     },
     reasons: {
       type: "array",
       items: { type: "string" },
       description: "Max 3 short bullets explaining the fit",
+    },
+    cvTips: {
+      type: "array",
+      items: { type: "string" },
+      description:
+        "Max 4 short, concrete tips to adapt my CV for THIS job: keywords from the ad to add, true experience from my profile to highlight, gaps to mention. Never invent experience.",
     },
   },
   required: [
@@ -84,6 +94,7 @@ const RESPONSE_SCHEMA = {
     "blockers",
     "eligibility",
     "reasons",
+    "cvTips",
   ],
 };
 
@@ -101,9 +112,29 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+// Service key bypasses Row Level Security (tables are closed to the browser).
+const db = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+);
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  if (req.method !== "POST") return json({ error: "Use POST" }, 405);
+
+  if (req.method === "GET") {
+    const { data, error } = await db
+      .from("job_history")
+      .select("id, created_at, analysis")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) {
+      console.error("History read failed", error);
+      return json({ error: "History not readable" }, 500);
+    }
+    return json(data);
+  }
+
+  if (req.method !== "POST") return json({ error: "Use GET or POST" }, 405);
 
   let jobText: string;
   try {
@@ -116,11 +147,7 @@ Deno.serve(async (req) => {
     return json({ error: "jobText is too long" }, 413);
   }
 
-  // Load private profile + rules (service key bypasses Row Level Security).
-  const db = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  // Load private profile + rules.
   const { data: rows, error } = await db
     .from("private_settings")
     .select("key, value")
@@ -143,6 +170,8 @@ Deno.serve(async (req) => {
     generationConfig: {
       responseMimeType: "application/json",
       responseJsonSchema: RESPONSE_SCHEMA,
+      // Less "thinking" = much faster answers; enough for matching a job to a CV.
+      thinkingConfig: { thinkingLevel: THINKING_LEVEL },
     },
   });
 
@@ -185,10 +214,19 @@ Deno.serve(async (req) => {
   const text = result?.candidates?.[0]?.content?.parts
     ?.map((p: { text?: string }) => p.text ?? "")
     .join("");
+  let analysis: Record<string, unknown>;
   try {
-    return json(JSON.parse(text));
+    analysis = JSON.parse(text);
   } catch {
     console.error("Unparseable AI output", text);
     return json({ error: "AI returned invalid JSON" }, 502);
   }
+
+  // Save to history. A failed save must not lose the answer.
+  const { error: saveError } = await db
+    .from("job_history")
+    .insert({ job_text: jobText, analysis });
+  if (saveError) console.error("History save failed", saveError);
+
+  return json(analysis);
 });

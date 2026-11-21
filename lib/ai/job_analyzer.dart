@@ -10,6 +10,7 @@ class JobAnalysis {
     this.blockers = const [],
     this.eligibility = Eligibility.unknown,
     this.reasons = const [],
+    this.cvTips = const [],
   });
 
   /// Reads the JSON sent by the server function.
@@ -40,6 +41,7 @@ class JobAnalysis {
       ],
       eligibility: byName(Eligibility.values, json['eligibility']),
       reasons: [for (final r in json['reasons'] as List? ?? const []) '$r'],
+      cvTips: [for (final t in json['cvTips'] as List? ?? const []) '$t'],
     );
   }
 
@@ -50,6 +52,9 @@ class JobAnalysis {
   final List<Blocker> blockers;
   final Eligibility eligibility;
   final List<String> reasons;
+
+  /// How to adapt my CV for this job (keywords to add, experience to highlight).
+  final List<String> cvTips;
 }
 
 /// Any AI provider (fake, Gemini, ...) implements this.
