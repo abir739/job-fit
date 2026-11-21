@@ -25,8 +25,10 @@ const MODELS = [
 // Same names as the Dart enum JobStatus in lib/history/history.dart.
 const JOB_STATUSES = ["saved", "applied", "interview", "rejected", "offer"];
 const RETRY_STATUSES = [400, 404, 429, 500, 503];
-// A busy model can hang: give up on it after this and try the next one.
+// A busy model can hang: give up on it after this.
 const MODEL_TIMEOUT_MS = 35_000;
+// No answer yet after this? Also start the next model; the first answer wins.
+const HEDGE_AFTER_MS = 10_000;
 const MAX_JOB_CHARS = 20_000;
 // minimal | low | medium | high
 const THINKING_LEVEL = Deno.env.get("GEMINI_THINKING") ?? "low";
@@ -139,8 +141,49 @@ const db = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-// Calls Gemini, trying each model in turn. Returns the text, or an error Response.
-async function askGemini(
+// Calls one model. Resolves with its text; rejects with the HTTP status (or "timeout").
+async function callModel(
+  model: string,
+  requestBody: string,
+  signal: AbortSignal,
+): Promise<string> {
+  const started = Date.now();
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": Deno.env.get("GEMINI_API_KEY")!,
+        },
+        body: requestBody,
+        signal: AbortSignal.any([signal, AbortSignal.timeout(MODEL_TIMEOUT_MS)]),
+      },
+    );
+  } catch (e) {
+    // Cancelled because another model answered first: not an error.
+    if (!signal.aborted) {
+      console.error("Gemini timeout/network error", model, String(e));
+    }
+    throw "timeout";
+  }
+  if (!res.ok) {
+    console.error("Gemini error", model, res.status, await res.text());
+    throw res.status;
+  }
+  const result = await res.json();
+  console.log("Model used:", model, `${Date.now() - started} ms`);
+  return result?.candidates?.[0]?.content?.parts
+    ?.map((p: { text?: string }) => p.text ?? "")
+    .join("") ?? "";
+}
+
+// Calls Gemini. Starts the first model; if it fails, or has not answered after
+// HEDGE_AFTER_MS, also starts the next one. The first answer wins, the others
+// are cancelled. Returns the text, or an error Response.
+function askGemini(
   systemPrompt: string,
   userText: string,
   generationConfig: Record<string, unknown>,
@@ -155,45 +198,47 @@ async function askGemini(
     },
   });
 
-  let geminiRes: Response | undefined;
-  for (const model of MODELS) {
-    try {
-      geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": Deno.env.get("GEMINI_API_KEY")!,
-          },
-          body: requestBody,
-          signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
-        },
-      );
-    } catch (e) {
-      console.error("Gemini timeout/network error", model, String(e));
-      geminiRes = undefined;
-      continue; // try the next model
-    }
-    if (geminiRes.ok) {
-      console.log("Model used:", model);
-      break;
-    }
-    console.error("Gemini error", model, geminiRes.status, await geminiRes.text());
-    if (!RETRY_STATUSES.includes(geminiRes.status)) break; // e.g. bad key: no point retrying
-  }
+  return new Promise((resolve) => {
+    const cancel = new AbortController();
+    const timers: number[] = [];
+    let next = 0;
+    let running = 0;
+    let finished = false;
+    let lastError: unknown = "timeout";
 
-  if (!geminiRes?.ok) {
-    return json(
-      { error: `AI is busy right now (${geminiRes?.status ?? "timeout"})` },
-      502,
-    );
-  }
+    const finish = (value: string | Response) => {
+      if (finished) return;
+      finished = true;
+      timers.forEach(clearTimeout);
+      cancel.abort(); // stop the slower calls
+      resolve(value);
+    };
+    const busy = () =>
+      json({ error: `AI is busy right now (${lastError})` }, 502);
 
-  const result = await geminiRes.json();
-  return result?.candidates?.[0]?.content?.parts
-    ?.map((p: { text?: string }) => p.text ?? "")
-    .join("") ?? "";
+    const startNext = () => {
+      if (finished) return;
+      if (next >= MODELS.length) {
+        if (running === 0) finish(busy());
+        return;
+      }
+      const model = MODELS[next++];
+      running++;
+      timers.push(setTimeout(startNext, HEDGE_AFTER_MS));
+      callModel(model, requestBody, cancel.signal).then(finish, (error) => {
+        running--;
+        lastError = error;
+        // e.g. a bad key: other models would fail the same way.
+        if (typeof error === "number" && !RETRY_STATUSES.includes(error)) {
+          finish(busy());
+        } else {
+          startNext();
+        }
+      });
+    };
+
+    startNext();
+  });
 }
 
 // Loads my private profile + rules.
