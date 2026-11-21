@@ -13,14 +13,23 @@ const _months = [
 String shortDate(DateTime d) => '${d.day} ${_months[d.month - 1]}';
 
 /// Recent evaluated jobs. Tap one to see its result again.
-class HistoryList extends ConsumerWidget {
+/// Chips on top filter the list by application status.
+class HistoryList extends ConsumerStatefulWidget {
   const HistoryList({super.key, this.onOpen});
 
   /// Called after an entry is opened (e.g. to scroll up to the result).
   final VoidCallback? onOpen;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HistoryList> createState() => _HistoryListState();
+}
+
+class _HistoryListState extends ConsumerState<HistoryList> {
+  /// null = show all jobs.
+  JobStatus? _filter;
+
+  @override
+  Widget build(BuildContext context) {
     final history = ref.watch(historyProvider);
     final text = Theme.of(context).textTheme;
 
@@ -38,27 +47,53 @@ class HistoryList extends ConsumerWidget {
             child: Center(child: CircularProgressIndicator()),
           ),
           error: (e, _) => Text('$e'),
-          data: (entries) => entries.isEmpty
-              ? Text(
-                  'Jobs you evaluate will appear here.',
-                  style: text.bodyMedium?.copyWith(color: Colors.grey.shade700),
-                )
-              : Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      for (final (i, entry) in entries.indexed) ...[
-                        if (i > 0) const Divider(height: 1),
-                        _HistoryTile(entry, onOpen: onOpen),
-                      ],
-                    ],
-                  ),
+          data: (all) {
+            if (all.isEmpty) {
+              return Text(
+                'Jobs you evaluate will appear here.',
+                style: text.bodyMedium?.copyWith(color: Colors.grey.shade700),
+              );
+            }
+            final entries = [
+              for (final e in all)
+                if (_filter == null || e.status == _filter) e,
+            ];
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _StatusFilter(
+                  entries: all,
+                  selected: _filter,
+                  onSelected: (s) => setState(() => _filter = s),
                 ),
+                const SizedBox(height: 10),
+                if (entries.isEmpty)
+                  Text(
+                    'No jobs with this status.',
+                    style: text.bodyMedium?.copyWith(
+                      color: Colors.grey.shade700,
+                    ),
+                  )
+                else
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        for (final (i, entry) in entries.indexed) ...[
+                          if (i > 0) const Divider(height: 1),
+                          _HistoryTile(entry, onOpen: widget.onOpen),
+                        ],
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -171,6 +206,44 @@ class _StatusMenu extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "All (n)" plus one chip per status in use, e.g. "Applied (2)".
+class _StatusFilter extends StatelessWidget {
+  const _StatusFilter({
+    required this.entries,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<HistoryEntry> entries;
+  final JobStatus? selected;
+  final ValueChanged<JobStatus?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    int count(JobStatus s) => entries.where((e) => e.status == s).length;
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        ChoiceChip(
+          label: Text('All (${entries.length})'),
+          selected: selected == null,
+          onSelected: (_) => onSelected(null),
+        ),
+        for (final s in JobStatus.values)
+          if (count(s) > 0 || s == selected)
+            ChoiceChip(
+              label: Text('${s.label} (${count(s)})'),
+              selected: s == selected,
+              selectedColor: statusColor(s).withValues(alpha: 0.15),
+              onSelected: (_) => onSelected(s),
+            ),
+      ],
     );
   }
 }

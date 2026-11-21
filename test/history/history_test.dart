@@ -135,4 +135,41 @@ void main() {
     expect(repo.entries.single.status, JobStatus.applied);
     expect(find.text('Applied'), findsOneWidget);
   });
+
+  testWidgets('status chips filter the history', (tester) async {
+    HistoryEntry entry(int id, String title, JobStatus status) {
+      final row = _row(id);
+      (row['analysis'] as Map<String, dynamic>)['title'] = title;
+      return HistoryEntry.tryFromJson({...row, 'status': status.name})!;
+    }
+
+    final repo = _FixedHistory([
+      entry(1, 'Job One', JobStatus.saved),
+      entry(2, 'Job Two', JobStatus.applied),
+      entry(3, 'Job Three', JobStatus.applied),
+    ]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [historyRepositoryProvider.overrideWithValue(repo)],
+        child: const MaterialApp(home: HomePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Only statuses in use get a chip.
+    expect(find.text('All (3)'), findsOneWidget);
+    expect(find.text('Saved (1)'), findsOneWidget);
+    expect(find.text('Applied (2)'), findsOneWidget);
+    expect(find.text('Interview (0)'), findsNothing);
+
+    await tester.tap(find.text('Applied (2)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Job One'), findsNothing);
+    expect(find.text('Job Two'), findsOneWidget);
+    expect(find.text('Job Three'), findsOneWidget);
+
+    await tester.tap(find.text('All (3)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Job One'), findsOneWidget);
+  });
 }
