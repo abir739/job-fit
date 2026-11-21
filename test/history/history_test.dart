@@ -112,6 +112,8 @@ void main() {
     expect(find.text('80%'), findsOneWidget); // 80×1 + 20×0
     expect(find.text('Too senior for now'), findsOneWidget);
     expect(find.text('Improve your CV for this job'), findsOneWidget);
+    // SKIP → no cover letter button.
+    expect(find.text('Write cover letter'), findsNothing);
   });
 
   testWidgets('status menu changes the status', (tester) async {

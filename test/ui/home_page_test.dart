@@ -7,6 +7,11 @@ import 'package:job_fit/main.dart';
 
 void main() {
   testWidgets('paste a job → see score and verdict', (tester) async {
+    // Tall window so the whole result fits without scrolling.
+    tester.view.physicalSize = const Size(800, 3000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -30,6 +35,17 @@ void main() {
     expect(find.text('Missing (1)'), findsOneWidget);
     // Eligibility unknown → caution, even with a good score.
     expect(find.text('APPLY WITH CAUTION'), findsOneWidget);
+
+    // Not SKIP → a cover letter can be written.
+    await tester.tap(find.text('Write cover letter'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is SelectableText && w.data!.contains('Sample cover letter'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Copy'), findsOneWidget);
   });
 
   testWidgets('empty text does nothing', (tester) async {

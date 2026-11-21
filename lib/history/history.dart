@@ -29,6 +29,7 @@ class HistoryEntry {
     required this.createdAt,
     required this.analysis,
     this.status = JobStatus.saved,
+    this.coverLetter,
   });
 
   /// Returns null for an entry that can't be read, so one bad row
@@ -42,6 +43,7 @@ class HistoryEntry {
           json['analysis'] as Map<String, dynamic>,
         ),
         status: JobStatus.parse(json['status']),
+        coverLetter: json['cover_letter'] as String?,
       );
     } catch (_) {
       return null;
@@ -52,6 +54,7 @@ class HistoryEntry {
   final DateTime createdAt;
   final JobAnalysis analysis;
   final JobStatus status;
+  final String? coverLetter;
 }
 
 abstract interface class HistoryRepository {

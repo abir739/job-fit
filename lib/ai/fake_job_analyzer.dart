@@ -8,9 +8,9 @@ class FakeJobAnalyzer implements JobAnalyzer {
   final Duration delay;
 
   @override
-  Future<JobAnalysis> analyze(String jobDescription) async {
+  Future<SavedAnalysis> analyze(String jobDescription) async {
     await Future<void>.delayed(delay);
-    return const JobAnalysis(
+    const analysis = JobAnalysis(
       title: 'Flutter Developer',
       company: 'Sample Company',
       requirements: [
@@ -24,5 +24,6 @@ class FakeJobAnalyzer implements JobAnalyzer {
       reasons: ['Sample data: no real AI call.'],
       cvTips: ['Add "Firebase" if you have used it.'],
     );
+    return (analysis: analysis, historyId: 0);
   }
 }

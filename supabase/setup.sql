@@ -31,3 +31,7 @@ alter table public.job_history
   add column if not exists status text not null default 'saved'
   check (status in ('saved', 'applied', 'interview', 'rejected', 'offer'));
 grant update (status) on table public.job_history to service_role;
+
+-- Cover letter written for a saved job (kept so it is not generated twice).
+alter table public.job_history add column if not exists cover_letter text;
+grant update (cover_letter) on table public.job_history to service_role;

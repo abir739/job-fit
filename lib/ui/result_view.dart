@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../evaluation/evaluation_controller.dart';
 import '../scoring/fit_score.dart';
+import 'cover_letter_card.dart';
 
 const _green = Color(0xFF1E8E5A);
 const _amber = Color(0xFFE08A00);
@@ -153,6 +154,14 @@ class ResultView extends StatelessWidget {
         ),
         _SkillGroup('Partly', withMatch(Match.partial), _amber, Icons.adjust),
         _SkillGroup('Missing', withMatch(Match.missing), _red, Icons.cancel),
+
+        // Cover letter (only for jobs worth applying to)
+        if (r.verdict != Verdict.skip && evaluation.historyId != null)
+          CoverLetterCard(
+            key: ValueKey('cover-${evaluation.historyId}'),
+            historyId: evaluation.historyId!,
+            initialLetter: evaluation.coverLetter,
+          ),
 
         // Details (closed by default)
         _Section(

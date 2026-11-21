@@ -16,20 +16,37 @@ final jobAnalyzerProvider = Provider<JobAnalyzer>((ref) {
 
 /// The AI's facts plus the score computed by our own rules.
 class Evaluation {
-  const Evaluation(this.analysis, this.result);
+  const Evaluation(
+    this.analysis,
+    this.result, {
+    this.historyId,
+    this.coverLetter,
+  });
 
   /// Scores an analysis with the fixed rules (same input → same verdict).
-  factory Evaluation.fromAnalysis(JobAnalysis analysis) => Evaluation(
+  factory Evaluation.fromAnalysis(
+    JobAnalysis analysis, {
+    int? historyId,
+    String? coverLetter,
+  }) => Evaluation(
     analysis,
     evaluate(
       requirements: analysis.requirements,
       blockers: analysis.blockers,
       eligibility: analysis.eligibility,
     ),
+    historyId: historyId,
+    coverLetter: coverLetter,
   );
 
   final JobAnalysis analysis;
   final FitResult result;
+
+  /// Id of the saved history entry (needed to write a cover letter).
+  final int? historyId;
+
+  /// Cover letter already written for this job, if any.
+  final String? coverLetter;
 }
 
 class EvaluationController extends AsyncNotifier<Evaluation?> {
@@ -40,10 +57,11 @@ class EvaluationController extends AsyncNotifier<Evaluation?> {
     if (jobDescription.trim().isEmpty) return;
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      final analysis = await ref
-          .read(jobAnalyzerProvider)
-          .analyze(jobDescription);
-      return Evaluation.fromAnalysis(analysis);
+      final saved = await ref.read(jobAnalyzerProvider).analyze(jobDescription);
+      return Evaluation.fromAnalysis(
+        saved.analysis,
+        historyId: saved.historyId,
+      );
     });
     // The server saved it: refresh the history list.
     if (state.hasValue) ref.invalidate(historyProvider);

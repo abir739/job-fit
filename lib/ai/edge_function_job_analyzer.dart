@@ -19,7 +19,7 @@ class EdgeFunctionJobAnalyzer implements JobAnalyzer {
   final Duration timeout;
 
   @override
-  Future<JobAnalysis> analyze(String jobDescription) async {
+  Future<SavedAnalysis> analyze(String jobDescription) async {
     final http.Response res;
     try {
       res = await _client
@@ -50,7 +50,11 @@ class EdgeFunctionJobAnalyzer implements JobAnalyzer {
     }
 
     try {
-      return JobAnalysis.fromJson(body as Map<String, dynamic>);
+      final map = body as Map<String, dynamic>;
+      return (
+        analysis: JobAnalysis.fromJson(map),
+        historyId: map['historyId'] as int?,
+      );
     } catch (_) {
       throw AnalyzerException(
         'The AI answer was incomplete. Please try again.',

@@ -73,7 +73,11 @@ class _HistoryTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final evaluation = Evaluation.fromAnalysis(entry.analysis);
+    final evaluation = Evaluation.fromAnalysis(
+      entry.analysis,
+      historyId: entry.id,
+      coverLetter: entry.coverLetter,
+    );
     final r = evaluation.result;
     final a = entry.analysis;
     final color = verdictColor(r.verdict);
@@ -88,9 +92,11 @@ class _HistoryTile extends ConsumerWidget {
       ),
       title: Text(a.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
-        [a.company, shortDate(entry.createdAt), verdictLabel(r.verdict)]
-            .where((s) => s.isNotEmpty)
-            .join(' · '),
+        [
+          a.company,
+          shortDate(entry.createdAt),
+          verdictLabel(r.verdict),
+        ].where((s) => s.isNotEmpty).join(' · '),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),

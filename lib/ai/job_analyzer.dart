@@ -57,9 +57,12 @@ class JobAnalysis {
   final List<String> cvTips;
 }
 
+/// The AI's answer plus the id of the saved history entry (null if not saved).
+typedef SavedAnalysis = ({JobAnalysis analysis, int? historyId});
+
 /// Any AI provider (fake, Gemini, ...) implements this.
 abstract interface class JobAnalyzer {
-  Future<JobAnalysis> analyze(String jobDescription);
+  Future<SavedAnalysis> analyze(String jobDescription);
 }
 
 /// Any other failure, with a message that is safe to show.

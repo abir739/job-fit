@@ -28,7 +28,7 @@ void main() {
       return _json(sampleJson(), 200);
     });
 
-    final a = await analyzer.analyze('Some job ad');
+    final a = (await analyzer.analyze('Some job ad')).analysis;
 
     expect(sent.method, 'POST');
     expect(jsonDecode(sent.body), {'jobText': 'Some job ad'});
