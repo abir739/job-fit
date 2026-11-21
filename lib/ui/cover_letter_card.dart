@@ -77,18 +77,22 @@ class _CoverLetterCardState extends ConsumerState<CoverLetterCard> {
                   style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
-              if (letter != null)
+              if (letter != null) ...[
+                TextButton.icon(
+                  onPressed: _loading ? null : _write,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('Rewrite'),
+                ),
                 TextButton.icon(
                   onPressed: _copy,
                   icon: const Icon(Icons.copy, size: 18),
                   label: const Text('Copy'),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
-          if (letter != null)
-            SelectableText(letter, style: text.bodyMedium)
-          else if (_loading)
+          if (_loading)
             const Row(
               children: [
                 SizedBox.square(
@@ -99,6 +103,8 @@ class _CoverLetterCardState extends ConsumerState<CoverLetterCard> {
                 Text('Writing your cover letter…'),
               ],
             )
+          else if (letter != null)
+            SelectableText(letter, style: text.bodyMedium)
           else
             Align(
               alignment: Alignment.centerLeft,

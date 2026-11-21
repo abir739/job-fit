@@ -46,6 +46,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Copy'), findsOneWidget);
+
+    // Rewrite asks again and shows the new letter.
+    await tester.tap(find.text('Rewrite'));
+    await tester.pumpAndSettle();
+    expect(find.text('Copy'), findsOneWidget);
   });
 
   testWidgets('empty text does nothing', (tester) async {
