@@ -57,13 +57,6 @@ abstract interface class JobAnalyzer {
   Future<JobAnalysis> analyze(String jobDescription);
 }
 
-/// The server refused the secret app code.
-class WrongAppCodeException implements Exception {
-  @override
-  String toString() =>
-      'This link is not valid. Open the site with your personal link.';
-}
-
 /// Any other failure, with a message that is safe to show.
 class AnalyzerException implements Exception {
   AnalyzerException(this.message);

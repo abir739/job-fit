@@ -9,15 +9,12 @@ import 'job_analyzer.dart';
 class EdgeFunctionJobAnalyzer implements JobAnalyzer {
   EdgeFunctionJobAnalyzer({
     required this.endpoint,
-    required this.appCode,
     http.Client? client,
-    this.timeout = const Duration(seconds: 90),
+    this.timeout = const Duration(seconds: 100),
   }) : _client = client ?? http.Client();
 
   final Uri endpoint;
 
-  /// Read at call time, so a newly entered code is used right away.
-  final String Function() appCode;
   final http.Client _client;
   final Duration timeout;
 
@@ -28,10 +25,7 @@ class EdgeFunctionJobAnalyzer implements JobAnalyzer {
       res = await _client
           .post(
             endpoint,
-            headers: {
-              'Content-Type': 'application/json',
-              'x-app-code': appCode(),
-            },
+            headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'jobText': jobDescription}),
           )
           .timeout(timeout);
@@ -40,8 +34,6 @@ class EdgeFunctionJobAnalyzer implements JobAnalyzer {
     } catch (_) {
       throw AnalyzerException('Could not reach the server.');
     }
-
-    if (res.statusCode == 401) throw WrongAppCodeException();
 
     final Object? body;
     try {

@@ -2,7 +2,7 @@
 // It does NOT compute the score: the app does that with fixed rules.
 // Private data (profile, rules) is read from the `private_settings` table.
 //
-// Secrets (Edge Functions → Secrets): GEMINI_API_KEY, APP_CODE,
+// Secrets (Edge Functions → Secrets): GEMINI_API_KEY,
 // optional GEMINI_MODEL and GEMINI_FALLBACK_MODELS (comma-separated).
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase.
 
@@ -17,11 +17,13 @@ const MODELS = [
     .filter(Boolean),
 ];
 const RETRY_STATUSES = [404, 429, 500, 503];
+// A busy model can hang: give up on it after this and try the next one.
+const MODEL_TIMEOUT_MS = 35_000;
 const MAX_JOB_CHARS = 20_000;
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type, x-app-code",
+  "Access-Control-Allow-Headers": "content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -103,11 +105,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
 
-  // Light protection: a secret code only my app knows.
-  if (req.headers.get("x-app-code") !== Deno.env.get("APP_CODE")) {
-    return json({ error: "Unauthorized" }, 401);
-  }
-
   let jobText: string;
   try {
     jobText = String((await req.json()).jobText ?? "").trim();
@@ -151,17 +148,24 @@ Deno.serve(async (req) => {
 
   let geminiRes: Response | undefined;
   for (const model of MODELS) {
-    geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": Deno.env.get("GEMINI_API_KEY")!,
+    try {
+      geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": Deno.env.get("GEMINI_API_KEY")!,
+          },
+          body: requestBody,
+          signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
         },
-        body: requestBody,
-      },
-    );
+      );
+    } catch (e) {
+      console.error("Gemini timeout/network error", model, String(e));
+      geminiRes = undefined;
+      continue; // try the next model
+    }
     if (geminiRes.ok) {
       console.log("Model used:", model);
       break;
@@ -171,7 +175,10 @@ Deno.serve(async (req) => {
   }
 
   if (!geminiRes?.ok) {
-    return json({ error: `AI request failed (${geminiRes?.status})` }, 502);
+    return json(
+      { error: `AI is busy right now (${geminiRes?.status ?? "timeout"})` },
+      502,
+    );
   }
 
   const result = await geminiRes.json();

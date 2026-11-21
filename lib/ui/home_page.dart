@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../evaluation/app_code.dart';
 import '../evaluation/evaluation_controller.dart';
 import 'result_view.dart';
 
@@ -24,9 +23,6 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final evaluation = ref.watch(evaluationProvider);
-    final needsLink =
-        ref.watch(appCodeRequiredProvider) &&
-        ref.watch(appCodeProvider) == null;
     final text = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -50,13 +46,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                   style: text.bodyLarge?.copyWith(color: Colors.grey.shade700),
                 ),
                 const SizedBox(height: 20),
-                if (needsLink)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      'Open this site with your personal link to use it.',
-                    ),
-                  ),
                 TextField(
                   key: const Key('jobText'),
                   controller: _jobText,
@@ -82,7 +71,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   child: FilledButton.icon(
                     icon: const Icon(Icons.auto_awesome),
                     label: const Text('Evaluate'),
-                    onPressed: evaluation.isLoading || needsLink
+                    onPressed: evaluation.isLoading
                         ? null
                         : () => ref
                               .read(evaluationProvider.notifier)

@@ -11,7 +11,6 @@ import 'job_analysis_json_test.dart' show sampleJson;
 EdgeFunctionJobAnalyzer _analyzer(MockClientHandler handler) =>
     EdgeFunctionJobAnalyzer(
       endpoint: Uri.parse('https://example.test/functions/v1/analyze-job'),
-      appCode: () => 'secret-123',
       client: MockClient(handler),
     );
 
@@ -22,7 +21,7 @@ http.Response _json(Object body, int status) => http.Response(
 );
 
 void main() {
-  test('sends job text + secret code, returns parsed analysis', () async {
+  test('sends job text, returns parsed analysis', () async {
     late http.Request sent;
     final analyzer = _analyzer((req) async {
       sent = req;
@@ -32,16 +31,8 @@ void main() {
     final a = await analyzer.analyze('Some job ad');
 
     expect(sent.method, 'POST');
-    expect(sent.headers['x-app-code'], 'secret-123');
     expect(jsonDecode(sent.body), {'jobText': 'Some job ad'});
     expect(a.title, 'Flutter Developer');
-  });
-
-  test('401 → WrongAppCodeException', () async {
-    final analyzer = _analyzer(
-      (_) async => _json({'error': 'Unauthorized'}, 401),
-    );
-    expect(analyzer.analyze('x'), throwsA(isA<WrongAppCodeException>()));
   });
 
   test('server error → readable message', () async {
