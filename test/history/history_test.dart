@@ -18,10 +18,25 @@ Map<String, dynamic> _row(int id) => {
 
 class _FixedHistory implements HistoryRepository {
   _FixedHistory(this.entries);
-  final List<HistoryEntry> entries;
+  List<HistoryEntry> entries;
 
   @override
   Future<List<HistoryEntry>> recent() async => entries;
+
+  @override
+  Future<void> setStatus(int id, JobStatus status) async {
+    entries = [
+      for (final e in entries)
+        e.id == id
+            ? HistoryEntry(
+                id: e.id,
+                createdAt: e.createdAt,
+                analysis: e.analysis,
+                status: status,
+              )
+            : e,
+    ];
+  }
 }
 
 void main() {
@@ -45,6 +60,34 @@ void main() {
     expect(entries, hasLength(1));
     expect(entries.single.id, 2);
     expect(entries.single.analysis.title, 'Flutter Developer');
+    expect(entries.single.status, JobStatus.saved); // no status → saved
+  });
+
+  test('status is read; unknown status falls back to saved', () {
+    expect(
+      HistoryEntry.tryFromJson({..._row(1), 'status': 'interview'})!.status,
+      JobStatus.interview,
+    );
+    expect(
+      HistoryEntry.tryFromJson({..._row(1), 'status': 'weird'})!.status,
+      JobStatus.saved,
+    );
+  });
+
+  test('setStatus sends PATCH { id, status }', () async {
+    late http.Request sent;
+    final repo = EdgeFunctionHistoryRepository(
+      endpoint: Uri.parse('https://example.test/functions/v1/analyze-job'),
+      client: MockClient((req) async {
+        sent = req;
+        return http.Response('{}', 200);
+      }),
+    );
+
+    await repo.setStatus(7, JobStatus.applied);
+
+    expect(sent.method, 'PATCH');
+    expect(jsonDecode(sent.body), {'id': 7, 'status': 'applied'});
   });
 
   testWidgets('history shows saved jobs; tap opens the result', (tester) async {
@@ -61,7 +104,7 @@ void main() {
 
     // sampleJson: 1 MUST strong, 1 NICE missing, blocker tooSenior → SKIP.
     expect(find.text('Flutter Developer'), findsOneWidget);
-    expect(find.text('Acme · 21 Nov'), findsOneWidget);
+    expect(find.text('Acme · 21 Nov · SKIP'), findsOneWidget);
 
     await tester.tap(find.text('Flutter Developer'));
     await tester.pumpAndSettle();
@@ -69,5 +112,25 @@ void main() {
     expect(find.text('80%'), findsOneWidget); // 80×1 + 20×0
     expect(find.text('Too senior for now'), findsOneWidget);
     expect(find.text('Improve your CV for this job'), findsOneWidget);
+  });
+
+  testWidgets('status menu changes the status', (tester) async {
+    final repo = _FixedHistory([HistoryEntry.tryFromJson(_row(1))!]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [historyRepositoryProvider.overrideWithValue(repo)],
+        child: const MaterialApp(home: HomePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Saved'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('status-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Applied').last);
+    await tester.pumpAndSettle();
+
+    expect(repo.entries.single.status, JobStatus.applied);
+    expect(find.text('Applied'), findsOneWidget);
   });
 }

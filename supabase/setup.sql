@@ -25,3 +25,9 @@ create table if not exists public.job_history (
 );
 alter table public.job_history enable row level security;
 grant select, insert, delete on table public.job_history to service_role;
+
+-- Application tracker: where I am with each saved job.
+alter table public.job_history
+  add column if not exists status text not null default 'saved'
+  check (status in ('saved', 'applied', 'interview', 'rejected', 'offer'));
+grant update (status) on table public.job_history to service_role;

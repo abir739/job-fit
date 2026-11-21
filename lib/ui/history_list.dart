@@ -88,22 +88,83 @@ class _HistoryTile extends ConsumerWidget {
       ),
       title: Text(a.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
-        [a.company, shortDate(entry.createdAt)].join(' · '),
+        [a.company, shortDate(entry.createdAt), verdictLabel(r.verdict)]
+            .where((s) => s.isNotEmpty)
+            .join(' · '),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: Text(
-        verdictLabel(r.verdict),
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
-        ),
-      ),
+      trailing: _StatusMenu(entry),
       onTap: () {
         ref.read(evaluationProvider.notifier).show(evaluation);
         onOpen?.call();
       },
+    );
+  }
+}
+
+Color statusColor(JobStatus s) => switch (s) {
+  JobStatus.saved => Colors.grey.shade700,
+  JobStatus.applied => const Color(0xFF2F6FDB),
+  JobStatus.interview => const Color(0xFF7B4FD6),
+  JobStatus.rejected => const Color(0xFFD64545),
+  JobStatus.offer => const Color(0xFF1E8E5A),
+};
+
+/// Status pill; tap it to change where I am with this job.
+class _StatusMenu extends ConsumerWidget {
+  const _StatusMenu(this.entry);
+
+  final HistoryEntry entry;
+
+  Future<void> _change(
+    BuildContext context,
+    WidgetRef ref,
+    JobStatus status,
+  ) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      await ref.read(historyRepositoryProvider).setStatus(entry.id, status);
+      ref.invalidate(historyProvider);
+    } catch (e) {
+      messenger?.showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final color = statusColor(entry.status);
+    return PopupMenuButton<JobStatus>(
+      key: Key('status-${entry.id}'),
+      tooltip: 'Change status',
+      initialValue: entry.status,
+      onSelected: (s) => _change(context, ref, s),
+      itemBuilder: (_) => [
+        for (final s in JobStatus.values)
+          PopupMenuItem(value: s, child: Text(s.label)),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              entry.status.label,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+            Icon(Icons.arrow_drop_down, size: 18, color: color),
+          ],
+        ),
+      ),
     );
   }
 }

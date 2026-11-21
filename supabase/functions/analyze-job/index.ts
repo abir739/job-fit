@@ -1,6 +1,7 @@
 // Supabase Edge Function.
 //   POST { jobText } → structured facts about the job (JSON), saved to history.
 //   GET              → the 50 most recent history entries.
+//   PATCH { id, status } → update the application status of one entry.
 // It does NOT compute the score: the app does that with fixed rules.
 // Private data (profile, rules) is read from the `private_settings` table.
 //
@@ -18,6 +19,8 @@ const MODELS = [
     .map((m) => m.trim())
     .filter(Boolean),
 ];
+// Same names as the Dart enum JobStatus in lib/history/history.dart.
+const JOB_STATUSES = ["saved", "applied", "interview", "rejected", "offer"];
 const RETRY_STATUSES = [400, 404, 429, 500, 503];
 // A busy model can hang: give up on it after this and try the next one.
 const MODEL_TIMEOUT_MS = 35_000;
@@ -28,7 +31,7 @@ const THINKING_LEVEL = Deno.env.get("GEMINI_THINKING") ?? "low";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
 };
 
 // Same names as the Dart enums in lib/scoring/fit_score.dart.
@@ -124,7 +127,7 @@ Deno.serve(async (req) => {
   if (req.method === "GET") {
     const { data, error } = await db
       .from("job_history")
-      .select("id, created_at, analysis")
+      .select("id, created_at, status, analysis")
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) {
@@ -134,7 +137,28 @@ Deno.serve(async (req) => {
     return json(data);
   }
 
-  if (req.method !== "POST") return json({ error: "Use GET or POST" }, 405);
+  if (req.method === "PATCH") {
+    let id: unknown, status: unknown;
+    try {
+      ({ id, status } = await req.json());
+    } catch {
+      return json({ error: "Body must be JSON: { id, status }" }, 400);
+    }
+    if (!Number.isInteger(id) || !JOB_STATUSES.includes(String(status))) {
+      return json({ error: "Invalid id or status" }, 400);
+    }
+    const { error } = await db
+      .from("job_history")
+      .update({ status })
+      .eq("id", id);
+    if (error) {
+      console.error("Status update failed", error);
+      return json({ error: "Status not saved" }, 500);
+    }
+    return json({ id, status });
+  }
+
+  if (req.method !== "POST") return json({ error: "Use GET, POST or PATCH" }, 405);
 
   let jobText: string;
   try {

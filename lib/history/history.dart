@@ -6,12 +6,29 @@ import 'package:http/http.dart' as http;
 import '../ai/job_analyzer.dart';
 import '../config.dart';
 
+/// Where I am with a job. Same names as JOB_STATUSES in the Edge Function.
+enum JobStatus {
+  saved('Saved'),
+  applied('Applied'),
+  interview('Interview'),
+  rejected('Rejected'),
+  offer('Offer');
+
+  const JobStatus(this.label);
+  final String label;
+
+  /// Unknown or missing values fall back to [saved].
+  static JobStatus parse(Object? value) =>
+      values.asNameMap()[value] ?? JobStatus.saved;
+}
+
 /// One saved evaluation. The score is recomputed by the app's rules.
 class HistoryEntry {
   const HistoryEntry({
     required this.id,
     required this.createdAt,
     required this.analysis,
+    this.status = JobStatus.saved,
   });
 
   /// Returns null for an entry that can't be read, so one bad row
@@ -24,6 +41,7 @@ class HistoryEntry {
         analysis: JobAnalysis.fromJson(
           json['analysis'] as Map<String, dynamic>,
         ),
+        status: JobStatus.parse(json['status']),
       );
     } catch (_) {
       return null;
@@ -33,10 +51,12 @@ class HistoryEntry {
   final int id;
   final DateTime createdAt;
   final JobAnalysis analysis;
+  final JobStatus status;
 }
 
 abstract interface class HistoryRepository {
   Future<List<HistoryEntry>> recent();
+  Future<void> setStatus(int id, JobStatus status);
 }
 
 /// Reads the history from the Edge Function (GET).
@@ -61,6 +81,20 @@ class EdgeFunctionHistoryRepository implements HistoryRepository {
         ?HistoryEntry.tryFromJson(row as Map<String, dynamic>),
     ];
   }
+
+  @override
+  Future<void> setStatus(int id, JobStatus status) async {
+    final res = await _client
+        .patch(
+          endpoint,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'id': id, 'status': status.name}),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw AnalyzerException('Could not save status (${res.statusCode}).');
+    }
+  }
 }
 
 /// No server (fake mode): no history.
@@ -69,6 +103,9 @@ class EmptyHistoryRepository implements HistoryRepository {
 
   @override
   Future<List<HistoryEntry>> recent() async => const [];
+
+  @override
+  Future<void> setStatus(int id, JobStatus status) async {}
 }
 
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
