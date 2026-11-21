@@ -250,15 +250,32 @@ class _SkillGroup extends StatelessWidget {
               for (final req in items)
                 Tooltip(
                   message: req.evidence,
-                  child: Chip(
-                    avatar: Icon(icon, size: 18, color: color),
-                    label: Text(
-                      req.type == RequirementType.nice
-                          ? '${req.name} (nice)'
-                          : req.name,
+                  // Not a Material Chip: its label can't wrap, so long
+                  // skill names were cut off on phones.
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                    backgroundColor: color.withValues(alpha: 0.08),
-                    side: BorderSide(color: color.withValues(alpha: 0.4)),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: color.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon, size: 18, color: color),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            req.type == RequirementType.nice
+                                ? '${req.name} (nice)'
+                                : req.name,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
             ],
