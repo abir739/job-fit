@@ -37,4 +37,24 @@ void main() {
     // Wrapped: taller than one line of text.
     expect(tester.getSize(label).height, greaterThan(30));
   });
+
+  testWidgets('a job evaluated before shows a note', (tester) async {
+    final evaluation = Evaluation.fromAnalysis(
+      const JobAnalysis(title: 'Job', company: 'Co', requirements: []),
+      alreadySaved: true,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(child: ResultView(evaluation)),
+        ),
+      ),
+    );
+
+    expect(
+      find.text('You already evaluated this job. Showing the saved result.'),
+      findsOneWidget,
+    );
+  });
 }

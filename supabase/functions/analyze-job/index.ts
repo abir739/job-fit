@@ -1,5 +1,7 @@
 // Supabase Edge Function.
 //   POST { jobText } → structured facts about the job (JSON) + historyId, saved to history.
+//                      A job already in the history (same text, or same title + company)
+//                      returns the saved entry instead, with alreadySaved: true.
 //   POST { coverLetterFor: id } → a short cover letter for that saved job (also saved).
 //   GET              → the 50 most recent history entries.
 //   PATCH { id, status } → update the application status of one entry.
@@ -238,6 +240,55 @@ async function writeCoverLetter(id: unknown): Promise<Response> {
   return json({ coverLetter: letter.trim() });
 }
 
+type HistoryRow = {
+  id: number;
+  created_at: string;
+  cover_letter: string | null;
+  analysis: Record<string, unknown>;
+};
+
+// The answer for a job that is already in the history: same result as before.
+function savedAnswer(row: HistoryRow): Response {
+  return json({
+    ...row.analysis,
+    historyId: row.id,
+    alreadySaved: true,
+    savedAt: row.created_at,
+    coverLetter: row.cover_letter,
+  });
+}
+
+// Same pasted text → the saved entry (no AI call needed).
+async function findBySameText(jobText: string): Promise<HistoryRow | null> {
+  const { data } = await db
+    .from("job_history")
+    .select("id, created_at, cover_letter, analysis")
+    .eq("job_text", jobText)
+    .order("created_at")
+    .limit(1);
+  return data?.[0] ?? null;
+}
+
+// Same job pasted differently → match on title + company (case-insensitive).
+async function findBySameJob(
+  analysis: Record<string, unknown>,
+): Promise<HistoryRow | null> {
+  // Escape LIKE wildcards so the title is matched literally.
+  const exact = (v: unknown) =>
+    String(v ?? "").trim().replace(/[\\%_]/g, (c) => `\\${c}`);
+  const title = exact(analysis.title);
+  const company = exact(analysis.company);
+  if (!title || !company) return null;
+  const { data } = await db
+    .from("job_history")
+    .select("id, created_at, cover_letter, analysis")
+    .ilike("analysis->>title", title)
+    .ilike("analysis->>company", company)
+    .order("created_at")
+    .limit(1);
+  return data?.[0] ?? null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
@@ -293,6 +344,9 @@ Deno.serve(async (req) => {
     return json({ error: "jobText is too long" }, 413);
   }
 
+  const sameText = await findBySameText(jobText);
+  if (sameText) return savedAnswer(sameText);
+
   const settings = await loadSettings();
   if (settings instanceof Response) return settings;
 
@@ -313,6 +367,9 @@ Deno.serve(async (req) => {
     console.error("Unparseable AI output", text);
     return json({ error: "AI returned invalid JSON" }, 502);
   }
+
+  const sameJob = await findBySameJob(analysis);
+  if (sameJob) return savedAnswer(sameJob);
 
   // Save to history. A failed save must not lose the answer.
   const { data: saved, error: saveError } = await db

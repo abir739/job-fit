@@ -54,6 +54,8 @@ class EdgeFunctionJobAnalyzer implements JobAnalyzer {
       return (
         analysis: JobAnalysis.fromJson(map),
         historyId: map['historyId'] as int?,
+        alreadySaved: map['alreadySaved'] == true,
+        coverLetter: map['coverLetter'] as String?,
       );
     } catch (_) {
       throw AnalyzerException(

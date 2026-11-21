@@ -24,6 +24,11 @@ class FakeJobAnalyzer implements JobAnalyzer {
       reasons: ['Sample data: no real AI call.'],
       cvTips: ['Add "Firebase" if you have used it.'],
     );
-    return (analysis: analysis, historyId: 0);
+    return (
+      analysis: analysis,
+      historyId: 0,
+      alreadySaved: false,
+      coverLetter: null,
+    );
   }
 }

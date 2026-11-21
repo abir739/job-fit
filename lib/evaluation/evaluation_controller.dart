@@ -21,6 +21,7 @@ class Evaluation {
     this.result, {
     this.historyId,
     this.coverLetter,
+    this.alreadySaved = false,
   });
 
   /// Scores an analysis with the fixed rules (same input → same verdict).
@@ -28,6 +29,7 @@ class Evaluation {
     JobAnalysis analysis, {
     int? historyId,
     String? coverLetter,
+    bool alreadySaved = false,
   }) => Evaluation(
     analysis,
     evaluate(
@@ -37,6 +39,7 @@ class Evaluation {
     ),
     historyId: historyId,
     coverLetter: coverLetter,
+    alreadySaved: alreadySaved,
   );
 
   final JobAnalysis analysis;
@@ -47,6 +50,9 @@ class Evaluation {
 
   /// Cover letter already written for this job, if any.
   final String? coverLetter;
+
+  /// True when Evaluate found this job already in the history.
+  final bool alreadySaved;
 }
 
 class EvaluationController extends AsyncNotifier<Evaluation?> {
@@ -61,6 +67,8 @@ class EvaluationController extends AsyncNotifier<Evaluation?> {
       return Evaluation.fromAnalysis(
         saved.analysis,
         historyId: saved.historyId,
+        coverLetter: saved.coverLetter,
+        alreadySaved: saved.alreadySaved,
       );
     });
     // The server saved it: refresh the history list.

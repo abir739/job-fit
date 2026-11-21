@@ -57,8 +57,15 @@ class JobAnalysis {
   final List<String> cvTips;
 }
 
-/// The AI's answer plus the id of the saved history entry (null if not saved).
-typedef SavedAnalysis = ({JobAnalysis analysis, int? historyId});
+/// The AI's answer plus its history entry.
+/// [alreadySaved]: this job was evaluated before; the saved result is returned
+/// (with its cover letter, if one was written).
+typedef SavedAnalysis = ({
+  JobAnalysis analysis,
+  int? historyId,
+  bool alreadySaved,
+  String? coverLetter,
+});
 
 /// Any AI provider (fake, Gemini, ...) implements this.
 abstract interface class JobAnalyzer {

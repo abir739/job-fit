@@ -73,6 +73,15 @@ class ResultView extends StatelessWidget {
           ),
         ),
 
+        if (evaluation.alreadySaved)
+          const _Banner(
+            icon: Icons.history,
+            color: _blue,
+            child: Text(
+              'You already evaluated this job. Showing the saved result.',
+            ),
+          ),
+
         // Score ring + verdict
         _Section(
           child: Row(

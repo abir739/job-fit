@@ -35,6 +35,8 @@ void main() {
     expect(find.text('Missing (1)'), findsOneWidget);
     // Eligibility unknown → caution, even with a good score.
     expect(find.text('APPLY WITH CAUTION'), findsOneWidget);
+    // A new job: no "already evaluated" note.
+    expect(find.textContaining('already evaluated'), findsNothing);
 
     // Not SKIP → a cover letter can be written.
     await tester.tap(find.text('Write cover letter'));

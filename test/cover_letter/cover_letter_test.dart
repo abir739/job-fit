@@ -57,4 +57,26 @@ void main() {
 
     expect((await analyzer.analyze('job')).historyId, 9);
   });
+
+  test('a job already in history comes back with its saved letter', () async {
+    final analyzer = EdgeFunctionJobAnalyzer(
+      endpoint: _endpoint,
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            ...sampleJson(),
+            'historyId': 3,
+            'alreadySaved': true,
+            'coverLetter': 'Dear team',
+          }),
+          200,
+        ),
+      ),
+    );
+
+    final saved = await analyzer.analyze('job');
+    expect(saved.historyId, 3);
+    expect(saved.alreadySaved, isTrue);
+    expect(saved.coverLetter, 'Dear team');
+  });
 }
