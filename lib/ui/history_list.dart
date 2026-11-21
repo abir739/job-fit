@@ -144,6 +144,8 @@ class _HistoryTile extends ConsumerWidget {
   }
 }
 
+const _deleteColor = Color(0xFFD64545);
+
 Color statusColor(JobStatus s) => switch (s) {
   JobStatus.saved => Colors.grey.shade700,
   JobStatus.applied => const Color(0xFF2F6FDB),
@@ -152,7 +154,10 @@ Color statusColor(JobStatus s) => switch (s) {
   JobStatus.offer => const Color(0xFF1E8E5A),
 };
 
-/// Status pill; tap it to change where I am with this job.
+/// Menu value for "Delete" (the other values are [JobStatus]es).
+const _deleteAction = #delete;
+
+/// Status pill; tap it to change where I am with this job, or delete it.
 class _StatusMenu extends ConsumerWidget {
   const _StatusMenu(this.entry);
 
@@ -172,17 +177,62 @@ class _StatusMenu extends ConsumerWidget {
     }
   }
 
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this job?'),
+        content: Text(
+          '"${entry.analysis.title}" and its cover letter will be removed '
+          'from your history.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _deleteColor),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(historyRepositoryProvider).delete(entry.id);
+      ref.invalidate(historyProvider);
+    } catch (e) {
+      messenger?.showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final color = statusColor(entry.status);
-    return PopupMenuButton<JobStatus>(
+    return PopupMenuButton<Object>(
       key: Key('status-${entry.id}'),
       tooltip: 'Change status',
       initialValue: entry.status,
-      onSelected: (s) => _change(context, ref, s),
+      onSelected: (value) => value is JobStatus
+          ? _change(context, ref, value)
+          : _delete(context, ref),
       itemBuilder: (_) => [
         for (final s in JobStatus.values)
           PopupMenuItem(value: s, child: Text(s.label)),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: _deleteAction,
+          child: Row(
+            children: [
+              Icon(Icons.delete_outline, color: _deleteColor, size: 20),
+              SizedBox(width: 8),
+              Text('Delete', style: TextStyle(color: _deleteColor)),
+            ],
+          ),
+        ),
       ],
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

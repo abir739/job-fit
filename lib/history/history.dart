@@ -60,6 +60,7 @@ class HistoryEntry {
 abstract interface class HistoryRepository {
   Future<List<HistoryEntry>> recent();
   Future<void> setStatus(int id, JobStatus status);
+  Future<void> delete(int id);
 }
 
 /// Reads the history from the Edge Function (GET).
@@ -98,6 +99,20 @@ class EdgeFunctionHistoryRepository implements HistoryRepository {
       throw AnalyzerException('Could not save status (${res.statusCode}).');
     }
   }
+
+  @override
+  Future<void> delete(int id) async {
+    final res = await _client
+        .delete(
+          endpoint,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'id': id}),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw AnalyzerException('Could not delete (${res.statusCode}).');
+    }
+  }
 }
 
 /// No server (fake mode): no history.
@@ -109,6 +124,9 @@ class EmptyHistoryRepository implements HistoryRepository {
 
   @override
   Future<void> setStatus(int id, JobStatus status) async {}
+
+  @override
+  Future<void> delete(int id) async {}
 }
 
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {

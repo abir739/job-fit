@@ -37,6 +37,14 @@ class _FixedHistory implements HistoryRepository {
             : e,
     ];
   }
+
+  @override
+  Future<void> delete(int id) async {
+    entries = [
+      for (final e in entries)
+        if (e.id != id) e,
+    ];
+  }
 }
 
 void main() {
@@ -171,5 +179,53 @@ void main() {
     await tester.tap(find.text('All (3)'));
     await tester.pumpAndSettle();
     expect(find.text('Job One'), findsOneWidget);
+  });
+
+  test('delete sends DELETE { id }', () async {
+    late http.Request sent;
+    final repo = EdgeFunctionHistoryRepository(
+      endpoint: Uri.parse('https://example.test/functions/v1/analyze-job'),
+      client: MockClient((req) async {
+        sent = req;
+        return http.Response('{}', 200);
+      }),
+    );
+
+    await repo.delete(4);
+
+    expect(sent.method, 'DELETE');
+    expect(jsonDecode(sent.body), {'id': 4});
+  });
+
+  testWidgets('delete asks first, then removes the job', (tester) async {
+    final repo = _FixedHistory([HistoryEntry.tryFromJson(_row(1))!]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [historyRepositoryProvider.overrideWithValue(repo)],
+        child: const MaterialApp(home: HomePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Future<void> openDelete() async {
+      await tester.tap(find.byKey(const Key('status-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+    }
+
+    // Cancel keeps it.
+    await openDelete();
+    expect(find.text('Delete this job?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(repo.entries, hasLength(1));
+
+    // Confirm removes it.
+    await openDelete();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+    expect(repo.entries, isEmpty);
+    expect(find.text('Jobs you evaluate will appear here.'), findsOneWidget);
   });
 }

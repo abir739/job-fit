@@ -5,6 +5,7 @@
 //   POST { coverLetterFor: id } → a short cover letter for that saved job (also saved).
 //   GET              → the 50 most recent history entries.
 //   PATCH { id, status } → update the application status of one entry.
+//   DELETE { id }    → remove one entry from the history.
 // It does NOT compute the score: the app does that with fixed rules.
 // Private data (profile, rules) is read from the `private_settings` table.
 //
@@ -36,7 +37,7 @@ const THINKING_LEVEL = Deno.env.get("GEMINI_THINKING") ?? "low";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "content-type",
-  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
 };
 
 // Same names as the Dart enums in lib/scoring/fit_score.dart.
@@ -371,7 +372,25 @@ Deno.serve(async (req) => {
     return json({ id, status });
   }
 
-  if (req.method !== "POST") return json({ error: "Use GET, POST or PATCH" }, 405);
+  if (req.method === "DELETE") {
+    let id: unknown;
+    try {
+      ({ id } = await req.json());
+    } catch {
+      return json({ error: "Body must be JSON: { id }" }, 400);
+    }
+    if (!Number.isInteger(id)) return json({ error: "Invalid id" }, 400);
+    const { error } = await db.from("job_history").delete().eq("id", id);
+    if (error) {
+      console.error("Delete failed", error);
+      return json({ error: "Job not deleted" }, 500);
+    }
+    return json({ id, deleted: true });
+  }
+
+  if (req.method !== "POST") {
+    return json({ error: "Use GET, POST, PATCH or DELETE" }, 405);
+  }
 
   let body: Record<string, unknown>;
   try {
