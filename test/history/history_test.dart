@@ -47,6 +47,13 @@ class _FixedHistory implements HistoryRepository {
   }
 }
 
+/// Tall window so the whole page (result, search, history) is on screen.
+void _tallWindow(WidgetTester tester) {
+  tester.view.physicalSize = const Size(800, 4000);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+}
+
 void main() {
   test('GET history: parses rows, skips unreadable ones', () async {
     final repo = EdgeFunctionHistoryRepository(
@@ -99,6 +106,7 @@ void main() {
   });
 
   testWidgets('history shows saved jobs; tap opens the result', (tester) async {
+    _tallWindow(tester);
     final entry = HistoryEntry.tryFromJson(_row(1))!;
     await tester.pumpWidget(
       ProviderScope(
@@ -125,6 +133,7 @@ void main() {
   });
 
   testWidgets('status menu changes the status', (tester) async {
+    _tallWindow(tester);
     final repo = _FixedHistory([HistoryEntry.tryFromJson(_row(1))!]);
     await tester.pumpWidget(
       ProviderScope(
@@ -145,6 +154,7 @@ void main() {
   });
 
   testWidgets('status chips filter the history', (tester) async {
+    _tallWindow(tester);
     HistoryEntry entry(int id, String title, JobStatus status) {
       final row = _row(id);
       (row['analysis'] as Map<String, dynamic>)['title'] = title;
@@ -198,6 +208,7 @@ void main() {
   });
 
   testWidgets('delete asks first, then removes the job', (tester) async {
+    _tallWindow(tester);
     final repo = _FixedHistory([HistoryEntry.tryFromJson(_row(1))!]);
     await tester.pumpWidget(
       ProviderScope(

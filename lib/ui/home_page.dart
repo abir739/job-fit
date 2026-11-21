@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../evaluation/evaluation_controller.dart';
+import '../search/job_search.dart';
 import 'history_list.dart';
+import 'job_search_section.dart';
 import 'result_view.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -27,6 +29,13 @@ class _HomePageState extends ConsumerState<HomePage> {
         );
       }
     });
+  }
+
+  /// "Evaluate" on a found job: put its text in the box and evaluate it.
+  void _evaluateFound(FoundJob job) {
+    _jobText.text = job.jobText;
+    ref.read(evaluationProvider.notifier).evaluateJob(job.jobText);
+    _scrollToResult();
   }
 
   @override
@@ -109,6 +118,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                         : ResultView(value),
                   ),
                 ),
+                const SizedBox(height: 24),
+                JobSearchSection(onEvaluate: _evaluateFound),
                 const SizedBox(height: 24),
                 HistoryList(onOpen: _scrollToResult),
               ],
