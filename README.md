@@ -4,7 +4,7 @@ Paste a job description and get a clear answer: **apply or not**.
 
 Job Fit compares a job ad with my CV, like an ATS check. It shows a match score, a verdict, the skills that match or are missing, tips to adapt my CV, and a ready-to-copy cover letter. It can also find open jobs that fit me, and it keeps a small application tracker.
 
-**Live demo:** https://abir739.github.io/job-fit/
+**Live demo:** https://abir739.github.io/job-fit/ (demo mode: sample data, no real AI, so you can try every screen)
 
 <p align="center">
   <img src="docs/screenshots/home.png" width="19%" alt="Paste a job description; history below">
@@ -21,6 +21,7 @@ Job Fit compares a job ad with my CV, like an ATS check. It shows a match score,
 - **CV tips:** concrete keywords and experience to highlight for this specific job.
 - **Cover letter:** a short cover letter written from real CV facts only, with one-tap copy.
 - **Find jobs:** searches open job ads (optionally by country or "remote"), keeps the ones that fit my rules, and explains why. One tap evaluates an ad with its full text.
+- **Demo mode and owner login:** visitors get a full demo with sample data; I log in once per device with a passphrase to use the real AI and my history.
 - **History and tracker:** every evaluated job is saved, and synced between phone and computer. Mark each one Saved, Applied, Interview, Rejected or Offer, filter by status, or delete it. Evaluating the same job twice returns the saved result.
 
 ## How it works
@@ -36,6 +37,7 @@ Flutter web app ──► Supabase Edge Function ──► Gemini API
 - **The AI only extracts facts.** It returns structured JSON (requirements, match level, blockers) that follows a strict schema.
 - **The decision is plain code.** The score and verdict are computed in pure Dart with fixed rules, so the same facts always give the same answer, and the rules are unit tested.
 - **Private data stays on the server.** The CV and the evaluation rules live in a locked database table that only the Edge Function can read. The AI key is a server secret, never shipped to the browser.
+- **The server is owner-only.** Every request must carry my passphrase, checked on the server against a secret (constant-time compare); anything else gets 401. Without a passphrase the app never calls the server, so visitors cannot spend my AI quota or read my history.
 - **Resilient AI calls.** If a model fails, the next one is tried at once; if it is just slow, a second model is started in parallel and the first answer wins (a "hedged request").
 - **Job search in two steps.** A job API returns real, open ads; the AI then ranks them against my rules. The AI never invents postings or links.
 
@@ -60,6 +62,7 @@ lib/
   history/        saved jobs and application status
   cover_letter/   cover letter client
   search/         job search client
+  owner/          demo mode, owner login, passphrase storage
   ui/             pages and widgets
 supabase/
   functions/analyze-job/   Edge Function
