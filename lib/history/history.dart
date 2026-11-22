@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../ai/job_analyzer.dart';
 import '../config.dart';
+import '../owner/owner.dart';
 
 /// Where I am with a job. Same names as JOB_STATUSES in the Edge Function.
 enum JobStatus {
@@ -130,8 +131,12 @@ class EmptyHistoryRepository implements HistoryRepository {
 }
 
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
-  if (supabaseUrl.isEmpty) return const EmptyHistoryRepository();
-  return EdgeFunctionHistoryRepository(endpoint: jobFunctionUri);
+  final client = ref.watch(serverClientProvider);
+  if (client == null) return const EmptyHistoryRepository(); // demo mode
+  return EdgeFunctionHistoryRepository(
+    endpoint: jobFunctionUri,
+    client: client,
+  );
 });
 
 final historyProvider = FutureProvider<List<HistoryEntry>>(

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../ai/job_analyzer.dart';
 import '../config.dart';
+import '../owner/owner.dart';
 
 /// Writes a cover letter for a job saved in the history.
 abstract interface class CoverLetterWriter {
@@ -64,6 +65,10 @@ class FakeCoverLetterWriter implements CoverLetterWriter {
 }
 
 final coverLetterWriterProvider = Provider<CoverLetterWriter>((ref) {
-  if (supabaseUrl.isEmpty) return const FakeCoverLetterWriter();
-  return EdgeFunctionCoverLetterWriter(endpoint: jobFunctionUri);
+  final client = ref.watch(serverClientProvider);
+  if (client == null) return const FakeCoverLetterWriter(); // demo mode
+  return EdgeFunctionCoverLetterWriter(
+    endpoint: jobFunctionUri,
+    client: client,
+  );
 });

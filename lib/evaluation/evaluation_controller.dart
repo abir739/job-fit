@@ -4,14 +4,16 @@ import '../ai/edge_function_job_analyzer.dart';
 import '../ai/fake_job_analyzer.dart';
 import '../ai/job_analyzer.dart';
 import '../config.dart';
+import '../owner/owner.dart';
 import '../history/history.dart';
 import '../scoring/fit_score.dart';
 
 /// Which AI provider to use: the real server function, or fake data
 /// when no SUPABASE_URL is given (UI work, tests).
 final jobAnalyzerProvider = Provider<JobAnalyzer>((ref) {
-  if (supabaseUrl.isEmpty) return const FakeJobAnalyzer();
-  return EdgeFunctionJobAnalyzer(endpoint: jobFunctionUri);
+  final client = ref.watch(serverClientProvider);
+  if (client == null) return const FakeJobAnalyzer(); // demo mode
+  return EdgeFunctionJobAnalyzer(endpoint: jobFunctionUri, client: client);
 });
 
 /// The AI's facts plus the score computed by our own rules.
@@ -57,7 +59,10 @@ class Evaluation {
 
 class EvaluationController extends AsyncNotifier<Evaluation?> {
   @override
-  Future<Evaluation?> build() async => null; // nothing evaluated yet
+  Future<Evaluation?> build() async {
+    ref.watch(jobAnalyzerProvider); // log in / out → clear the old result
+    return null; // nothing evaluated yet
+  }
 
   Future<void> evaluateJob(String jobDescription) async {
     if (jobDescription.trim().isEmpty) return;

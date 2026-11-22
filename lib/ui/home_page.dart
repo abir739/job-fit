@@ -5,6 +5,7 @@ import '../evaluation/evaluation_controller.dart';
 import '../search/job_search.dart';
 import 'history_list.dart';
 import 'job_search_section.dart';
+import 'owner_bar.dart';
 import 'result_view.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -69,7 +70,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                   'Paste a job. Get a clear answer: apply or not.',
                   style: text.bodyLarge?.copyWith(color: Colors.grey.shade700),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
+                const OwnerBar(),
+                const SizedBox(height: 16),
                 TextField(
                   key: const Key('jobText'),
                   controller: _jobText,

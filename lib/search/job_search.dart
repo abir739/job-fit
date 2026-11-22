@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../ai/job_analyzer.dart';
 import '../config.dart';
+import '../owner/owner.dart';
 
 /// "Hamburg  (+ 1 weiterer Standort)   •  über DEVjobs.de" → "Hamburg (+ 1 weiterer Standort)".
 /// Drops the "via (site)" part and extra spaces.
@@ -131,14 +132,18 @@ class FakeJobFinder implements JobFinder {
 }
 
 final jobFinderProvider = Provider<JobFinder>((ref) {
-  if (supabaseUrl.isEmpty) return const FakeJobFinder();
-  return EdgeFunctionJobFinder(endpoint: jobFunctionUri);
+  final client = ref.watch(serverClientProvider);
+  if (client == null) return const FakeJobFinder(); // demo mode
+  return EdgeFunctionJobFinder(endpoint: jobFunctionUri, client: client);
 });
 
 /// null = no search yet.
 class JobSearchController extends AsyncNotifier<List<FoundJob>?> {
   @override
-  FutureOr<List<FoundJob>?> build() => null; // sync: ready on first frame
+  FutureOr<List<FoundJob>?> build() {
+    ref.watch(jobFinderProvider); // log in / out → clear old results
+    return null; // sync: ready on first frame
+  }
 
   Future<void> search(String where) async {
     state = const AsyncLoading();
