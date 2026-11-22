@@ -36,6 +36,18 @@ void main() {
     expect(jobs.single.company, 'Acme');
   });
 
+  test('location: drops "via site" and extra spaces', () {
+    expect(
+      cleanLocation('Hamburg  (+ 1 weiterer Standort)      •  über DEVjobs.de'),
+      'Hamburg (+ 1 weiterer Standort)',
+    );
+    expect(
+      cleanLocation('Remote · Beliebiger Ort   •  über JobLeads'),
+      'Remote · Beliebiger Ort',
+    );
+    expect(cleanLocation('Doha, Qatar'), 'Doha, Qatar');
+  });
+
   test('jobText holds what the evaluation needs', () {
     const job = FoundJob(
       title: 'Flutter Dev',

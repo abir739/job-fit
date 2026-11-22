@@ -7,6 +7,18 @@ import 'package:http/http.dart' as http;
 import '../ai/job_analyzer.dart';
 import '../config.dart';
 
+/// "Hamburg  (+ 1 weiterer Standort)   •  über DEVjobs.de" → "Hamburg (+ 1 weiterer Standort)".
+/// Drops the "via (site)" part and extra spaces.
+String cleanLocation(String raw) {
+  final parts = raw.split('•').map((p) => p.trim()).where((p) {
+    final lower = p.toLowerCase();
+    return p.isNotEmpty &&
+        !lower.startsWith('über ') &&
+        !lower.startsWith('via ');
+  });
+  return parts.join(' · ').replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
 /// One job ad found on the web (not evaluated yet).
 class FoundJob {
   const FoundJob({
@@ -27,7 +39,7 @@ class FoundJob {
     return FoundJob(
       title: str('title'),
       company: str('company'),
-      location: str('location'),
+      location: cleanLocation(str('location')),
       url: str('url'),
       posted: str('posted'),
       summary: str('summary'),
