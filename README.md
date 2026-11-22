@@ -76,3 +76,7 @@ flutter run -d chrome          # runs with fake sample data, no server needed
 ```
 
 To use a real backend, pass `--dart-define=SUPABASE_URL=...` and `--dart-define=JOB_FUNCTION=...`.
+
+## License
+
+Copyright (c) 2026 Abir Cherif. All rights reserved. The code is public to view as part of my portfolio; it may not be copied, reused or presented as someone else's work without my permission. See [LICENSE](LICENSE).
