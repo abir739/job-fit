@@ -7,10 +7,11 @@ Job Fit compares a job ad with my CV, like an ATS check. It shows a match score,
 **Live demo:** https://abir739.github.io/job-fit/
 
 <p align="center">
-  <img src="docs/screenshots/home.png" width="24%" alt="Paste a job description; history below">
-  <img src="docs/screenshots/result.png" width="24%" alt="Match score and verdict">
-  <img src="docs/screenshots/skills.png" width="24%" alt="CV tips and matched / partial skills">
-  <img src="docs/screenshots/cover-letter.png" width="24%" alt="Generated cover letter with copy button">
+  <img src="docs/screenshots/home.png" width="19%" alt="Paste a job description; history below">
+  <img src="docs/screenshots/result.png" width="19%" alt="Match score and verdict">
+  <img src="docs/screenshots/skills.png" width="19%" alt="CV tips and matched / partial skills">
+  <img src="docs/screenshots/cover-letter.png" width="19%" alt="Generated cover letter with copy button">
+  <img src="docs/screenshots/find-jobs.png" width="19%" alt="Find jobs: open ads to evaluate in one tap">
 </p>
 
 ## Features
