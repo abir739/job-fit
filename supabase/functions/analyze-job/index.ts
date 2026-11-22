@@ -13,6 +13,7 @@
 // Secrets (Edge Functions → Secrets): GEMINI_API_KEY,
 // optional GEMINI_MODEL, GEMINI_FALLBACK_MODELS (comma-separated), GEMINI_THINKING.
 // JSEARCH_API_KEY: RapidAPI key for JSearch (job search).
+// OWNER_PASSPHRASE: required on every request (header x-owner-key), else 401.
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -51,9 +52,32 @@ const THINKING_LEVEL = Deno.env.get("GEMINI_THINKING") ?? "low";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type",
+  "Access-Control-Allow-Headers": "content-type, x-owner-key",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
 };
+
+// Only the owner may use the server: every request must send the passphrase
+// (secret OWNER_PASSPHRASE) in the "x-owner-key" header.
+// No secret set (or too short) → everything is refused.
+const MIN_PASSPHRASE_CHARS = 12;
+
+async function sha256(text: string): Promise<Uint8Array> {
+  return new Uint8Array(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)),
+  );
+}
+
+async function isOwner(req: Request): Promise<boolean> {
+  const secret = Deno.env.get("OWNER_PASSPHRASE") ?? "";
+  const given = req.headers.get("x-owner-key") ?? "";
+  if (secret.length < MIN_PASSPHRASE_CHARS) return false;
+  // Compare hashes byte by byte without stopping early, so the time taken
+  // does not reveal how much of the guess was right.
+  const [a, b] = await Promise.all([sha256(secret), sha256(given)]);
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
 
 // Same names as the Dart enums in lib/scoring/fit_score.dart.
 const BLOCKERS = [
@@ -491,6 +515,9 @@ async function findBySameJob(
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (!(await isOwner(req))) {
+    return json({ error: "Wrong or missing passphrase" }, 401);
+  }
 
   if (req.method === "GET") {
     const { data, error } = await db
