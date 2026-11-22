@@ -34,7 +34,8 @@ const MODEL_TIMEOUT_MS = 35_000;
 const HEDGE_AFTER_MS = 10_000;
 const MAX_JOB_CHARS = 20_000;
 // Job search (JSearch on RapidAPI).
-const JSEARCH_URL = "https://jsearch.p.rapidapi.com/search";
+// v5 of the API: "/search" was replaced by "/search-v2".
+const JSEARCH_URL = "https://jsearch.p.rapidapi.com/search-v2";
 const JSEARCH_TIMEOUT_MS = 30_000;
 // Place typed in the app → JSearch country code (it searches one country at a time).
 const COUNTRY_CODES: Record<string, string> = {
@@ -343,7 +344,6 @@ type FoundJob = {
 async function jsearch(query: string, country?: string): Promise<FoundJob[]> {
   const params = new URLSearchParams({
     query,
-    page: "1",
     num_pages: "1",
     date_posted: "month",
   });
@@ -360,8 +360,14 @@ async function jsearch(query: string, country?: string): Promise<FoundJob[]> {
     throw res.status;
   }
   const body = await res.json();
+  // v5 puts the list inside data (next to data.cursor); older versions used data itself.
+  const list = [body?.data, body?.data?.jobs, body?.data?.data, body?.jobs]
+    .find(Array.isArray) ?? [];
+  if (list.length === 0) {
+    console.log("JSearch: no jobs", query, JSON.stringify(body).slice(0, 500));
+  }
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-  return (Array.isArray(body?.data) ? body.data : []).map(
+  return list.map(
     (j: Record<string, unknown>): FoundJob => {
       const place = str(j.job_location) ||
         [j.job_city, j.job_country].map(str).filter(Boolean).join(", ");
